@@ -328,23 +328,125 @@ func (c Collection) Prepend(values ...interface{}) Collection {
 }
 
 // reference: https://laravel.com/docs/5.8/collections#method-pull
-func (c Collection) Pull(key interface{}) Collection {
-	panic("implement it")
+func (c Collection) Pull(key string) Collection {
+
+	if n, ok := c.value.(map[string]interface{}); ok {
+		delete(n, key)
+
+		return Collect(n)
+	}
+
+	return Collect(c)
 }
 
 // reference: https://laravel.com/docs/5.8/collections#method-put
 func (c Collection) Put(key string, value interface{}) Collection {
-	panic("implement it")
+	arr := make(map[string]interface{}, 0)
+
+	if n, ok := c.value.(map[string]interface{}); ok {
+		arr = n
+	}
+	arr[key] = value
+
+	return Collect(arr)
 }
 
 // reference: https://laravel.com/docs/5.8/collections#method-sortby
-func (c Collection) SortBy(key string) Collection {
-	panic("implement it")
+func (c Collection) SortBy(key string) []int {
+
+	//sort key
+	keys := make(map[decimal.Decimal]int, c.length)
+	if n, ok := c.value.([]map[string]interface{}); ok {
+		for i, v := range n {
+			keys[NewDecimalFromInterface(v[key])] = i
+		}
+	}
+
+	index := 0
+	sortKeys := make([]decimal.Decimal, c.length)
+	for i := range keys {
+		sortKeys[index] = i
+		index = index + 1
+	}
+	var temp decimal.Decimal
+	for i := 0; i < c.length-1; i++ {
+		for j := 0; j < c.length-1-i; j++ {
+
+			if sortKeys[j].GreaterThanOrEqual(sortKeys[j+1]) {
+				temp = sortKeys[j]
+				sortKeys[j] = sortKeys[j+1]
+				sortKeys[j+1] = temp
+			}
+		}
+	}
+
+	arr := make([]int, c.length)
+
+	index = 0
+	if n, ok := c.value.([]map[string]interface{}); ok {
+		for _, v := range sortKeys {
+			for i, v1 := range n {
+				if v.Equal(NewDecimalFromInterface(v1[key])) {
+					arr[index] = i
+					index = index + 1
+				}
+			}
+		}
+	}
+
+	return arr
+
 }
 
 // reference: https://laravel.com/docs/5.8/collections#method-take
 func (c Collection) Take(num int) Collection {
-	panic("implement it")
+	var d Collection
+	if num > c.length {
+		panic("Not enough elements to take")
+	}
+
+	switch c.value.(type) {
+	// (If necessary)map[string]interface{} returns specified quantity keys
+	case map[string]interface{}:
+		if num < 0 {
+			num = 0 - num
+		}
+
+		m := make(map[string]interface{})
+		i := 0
+		for k, v := range c.ToMap() {
+			if i == num {
+				break
+			}
+			m[k] = v
+			i++
+		}
+		d = Collection{value: m, length: len(m)}
+	case []decimal.Decimal:
+		n := c.ToNumberArray()
+		if num >= 0 {
+			d = Collection{value: n[:num], length: num}
+		} else {
+			d = Collection{value: n[len(n)+num:], length: 0 - num}
+		}
+	case []string:
+		n := c.ToStringArray()
+		if num >= 0 {
+			d = Collection{value: n[:num], length: num}
+		} else {
+			d = Collection{value: n[len(n)+num:], length: 0 - num}
+		}
+	case []map[string]interface{}:
+		n := c.ToMapArray()
+		if num >= 0 {
+			d = Collection{value: n[:num], length: num}
+		} else {
+			d = Collection{value: n[len(n)+num:], length: 0 - num}
+		}
+	default:
+		panic("wrong type")
+	}
+	return d
 }
 
 // reference: https://laravel.com/docs/5.8/collections#method-average
